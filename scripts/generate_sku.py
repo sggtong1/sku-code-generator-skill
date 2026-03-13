@@ -173,15 +173,18 @@ def main():
     parser.add_argument("--category", default="", help="分类代码，留空则自动推断（优先由 Claude 传入）")
     parser.add_argument("--abbr", default="", help="产品缩写（2-4位大写字母），留空则自动生成")
     # sku_cost 表字段
-    parser.add_argument("--cost-price", type=float, default=0.0, help="成本价 cost_price")
+    parser.add_argument("--cost-price", type=float, required=True, help="成本价 cost_price（必填）")
     parser.add_argument("--region", type=int, default=1, help="区域 region（默认1）")
     parser.add_argument("--shipping-cost", type=float, default=0.0, help="运费 shipping_cost")
     parser.add_argument("--platform-fee", type=float, default=0.0, help="平台费 platform_fee")
     parser.add_argument("--effective-from", default=str(date.today()), help="生效日期 effective_from（YYYY-MM-DD）")
     parser.add_argument("--effective-to", default=None, help="截止日期 effective_to（YYYY-MM-DD，可选）")
     # 控制选项
-    parser.add_argument("--no-upload", action="store_true", help="跳过上传，仅本地生成 SKU")
+    parser.add_argument("--dry-run", action="store_true", help="仅生成 SKU，不上传（上传确认前使用）")
+    parser.add_argument("--no-upload", action="store_true", help="同 --dry-run，向下兼容")
     args = parser.parse_args()
+    # 统一处理两个等价标志
+    args.dry_run = args.dry_run or args.dry_run
 
     result = {
         "sku": None,
@@ -239,7 +242,7 @@ def main():
     supabase_ready = bool(supabase_url and supabase_key)
 
     existing_skus: set = set()
-    if supabase_ready and not args.no_upload:
+    if supabase_ready and not args.dry_run:
         existing_skus = supabase_get_existing_skus(supabase_url, supabase_key)
 
     # ── 生成 SKU ──────────────────────────────────────────────────────────────
@@ -252,7 +255,7 @@ def main():
 
     result["sku"] = sku
 
-    if args.no_upload:
+    if args.dry_run:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
 
